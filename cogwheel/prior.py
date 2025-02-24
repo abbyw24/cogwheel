@@ -819,7 +819,7 @@ class CombinedPrior(Prior):
 
         cls.conditioned_on = list(dict.fromkeys(
             [par for par in cls.conditioned_on
-             if not par in cls.standard_params]))
+             if par not in cls.standard_params]))
 
         # Check that the provided prior_classes can be combined:
         if len(cls.sampled_params) != len(set(cls.sampled_params)):

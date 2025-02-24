@@ -211,7 +211,7 @@ class EventData(utils.JSONMixin):
         asd_funcs = list(asd_funcs)  # Ensure it is mutable
         for i, asd_func in enumerate(asd_funcs):
             if isinstance(asd_func, str):
-                if not asd_func in ASDS:
+                if asd_func not in ASDS:
                     raise ValueError(f'Unknown asd_func {asd_func!r}. '
                                      f'Allowed values are {list(ASDS)}')
                 asd_funcs[i] = make_asd_func(*np.load(ASDS[asd_func]))
