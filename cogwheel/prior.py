@@ -184,7 +184,7 @@ class Prior(ABC, utils.JSONMixin):
         return []
 
     @abstractmethod
-    def lnprior(self) -> float:
+    def lnprior(self, *par_vals, **par_dic) -> float:
         """
         Natural logarithm of the prior probability density.
 
@@ -193,7 +193,7 @@ class Prior(ABC, utils.JSONMixin):
         """
 
     @abstractmethod
-    def transform(self) -> dict:
+    def transform(self, *par_vals, **par_dic) -> dict:
         """
         Transform sampled parameter values to standard parameter values.
 
@@ -202,7 +202,7 @@ class Prior(ABC, utils.JSONMixin):
         """
 
     @abstractmethod
-    def inverse_transform(self) -> dict:
+    def inverse_transform(self, *par_vals, **par_dic) -> dict:
         """
         Transform standard parameter values to sampled parameter values.
 
@@ -651,8 +651,7 @@ class CombinedPrior(Prior):
             The list of parameters to pass to a subclass `cls` of
             `CombinedPrior` can be found using `cls.init_parameters()`.
         """
-        kwargs.update(dict(zip([par.name for par in self.init_parameters()],
-                               args)))
+        kwargs.update(zip((par.name for par in self.init_parameters()), args))
 
         # Check for all required arguments at once:
         required = {par.name
@@ -704,7 +703,7 @@ class CombinedPrior(Prior):
             and return a dictionary with `self.standard_params`
             parameters.
             """
-            par_dic.update(dict(zip(direct_params, par_vals)))
+            par_dic.update(zip(direct_params, par_vals))
             for subprior in self.subpriors:
                 input_dic = {par: par_dic[par]
                              for par in (subprior.sampled_params
@@ -727,7 +726,7 @@ class CombinedPrior(Prior):
             Take ``.standard_params + .conditioned_on`` parameters
             and return a dictionary with ``.sampled_params`` parameters.
             """
-            par_dic.update(dict(zip(inverse_params, par_vals)))
+            par_dic.update(zip(inverse_params, par_vals))
             for subprior in self.subpriors:
                 input_dic = {par: par_dic[par]
                              for par in (subprior.standard_params
@@ -747,7 +746,7 @@ class CombinedPrior(Prior):
             compute the transform in order to compute the prior, so if
             both are wanted it is efficient to compute them at once.
             """
-            par_dic.update(dict(zip(direct_params, par_vals)))
+            par_dic.update(zip(direct_params, par_vals))
             standard_par_dic = self.transform(**par_dic)
             par_dic.update(standard_par_dic)
 
@@ -756,7 +755,7 @@ class CombinedPrior(Prior):
             if np.isnan(standard_par_vals).any():
                 lnp = -np.inf
             else:
-                lnp = 0
+                lnp = 0.0
                 for subprior in self.subpriors:
                     input_dic = {par: par_dic[par]
                                  for par in (subprior.sampled_params
