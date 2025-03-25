@@ -616,11 +616,19 @@ class Prior(ABC, utils.JSONMixin):
         self._max_lnprior = max_lnprior
 
     def _get_maximum_lnprior(self):
+        trimmed_bounds = [self._trim_bound(*bound)
+                          for bound in self.range_dic.values()]
         minimize_result = optimize.minimize(
             lambda par_vals: -self.lnprior(*par_vals),
-            x0=self.cubemin + self.cubesize/2,
-            bounds=self.range_dic.values())
+            bounds=trimmed_bounds,
+            x0=self.cubemin + self.cubesize/2)
         return -minimize_result.fun
+
+    @staticmethod
+    def _trim_bound(a, b, eps=1e-9):
+        mean = (a + b) / 2
+        trimmed_half_diff = (b - a) / 2 * (1-eps)
+        return mean - trimmed_half_diff, mean + trimmed_half_diff
 
 
 class CombinedPrior(Prior):
