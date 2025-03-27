@@ -68,6 +68,33 @@ def has_compatible_signature(func, params) -> bool:
     return list(params[:i_first_vararg]) == positional
 
 
+def check_inheritance_order(subclass, base1, base2, missing_ok=True):
+    """
+    Check that `subclass` does not inherit from `base2` before `base1`.
+
+    If `subclass` doesn't inherit from either `base1` or `base2` this
+    function exits silently.
+
+    Parameters
+    ----------
+    subclass, base1, base2 : class
+        Classes to test.
+
+    Raises
+    ------
+    PriorError
+        If the inheritance order is incorrect, i.e. `subclass` inherits
+        from `base2` before `base1`.
+    """
+    if not all(issubclass(subclass, base) for base in (base1, base2)):
+        return
+
+    if subclass.mro().index(base1) > subclass.mro().index(base2):
+        raise PriorError(f'Wrong inheritance order: `{subclass.__name__}` '
+                         f'must inherit from `{base1.__name__}` before '
+                         f'`{base2.__name__}` (or their subclasses).')
+
+
 class Prior(ABC, utils.JSONMixin):
     """
     Abstract base class to define priors for Bayesian parameter
@@ -1055,24 +1082,3 @@ class IdentityTransformMixin:
         return {par: par_dic[par] for par in self.standard_params}
 
     inverse_transform = transform
-
-
-def check_inheritance_order(subclass, base1, base2):
-    """
-    Check that class `subclass` subclasses `base1` and `base2`, in that
-    order.
-
-    Raises
-    ------
-    PriorError
-        If the above doesn't hold.
-    """
-    for base in base1, base2:
-        if not issubclass(subclass, base):
-            raise PriorError(
-                f'{subclass.__name__} must subclass {base.__name__}')
-
-    if subclass.mro().index(base1) > subclass.mro().index(base2):
-        raise PriorError(f'Wrong inheritance order: `{subclass.__name__}` '
-                         f'must inherit from `{base1.__name__}` before '
-                         f'`{base2.__name__}` (or their subclasses).')
