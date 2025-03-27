@@ -971,8 +971,7 @@ class FixedPrior(Prior):
             If the arguments passed do not match the `standard_par_dic`
             stored.
         """
-        standard_par_dic.update(dict(zip(self.standard_params,
-                                         standard_par_vals)))
+        standard_par_dic.update(zip(self.standard_params, standard_par_vals))
         if mismatched := [(par, standard_par_dic[par], fixed_val)
                           for par, fixed_val in self.standard_par_dic.items()
                           if fixed_val != standard_par_dic[par]]:
@@ -1051,8 +1050,8 @@ class IdentityTransformMixin:
         Take `self.sampled_params + self.conditioned_on` parameters and
         return a dictionary with `self.standard_params` parameters.
         """
-        par_dic.update(dict(zip(self.sampled_params + self.conditioned_on,
-                                par_vals)))
+        par_dic.update(zip(self.sampled_params + self.conditioned_on,
+                           par_vals))
         return {par: par_dic[par] for par in self.standard_params}
 
     inverse_transform = transform

@@ -19,7 +19,6 @@ from scipy.cluster.vq import kmeans
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import pandas as pd
 
 from cogwheel import gw_plotting
@@ -537,8 +536,8 @@ class EventdirPostprocessor:
         Return a list of colors depending on the value/tolerance ratio.
         green = 0, yellow = tolerance, red = 2x tolerance.
         """
-        return list(mpl.cm.RdYlGn_r(values / self.tolerance_params[key] / 2,
-                                    alpha=.3))
+        cmap = plt.get_cmap('RdYlGn_r')
+        return list(cmap(values / self.tolerance_params[key] / 2, alpha=.3))
 
     def _scatter_nsamples_vs_runtime(self):
         """Scatter plot number of samples vs runtime from `table`."""
