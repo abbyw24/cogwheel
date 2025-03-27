@@ -15,7 +15,8 @@ from cogwheel.cosmology import comoving_to_luminosity_diff_vt_ratio
 from cogwheel import gw_utils
 from cogwheel import skyloc_angles
 from cogwheel import utils
-from cogwheel.prior import Prior, UniformPriorMixin, IdentityTransformMixin
+from cogwheel.prior import (Prior, UniformPriorMixin, IdentityTransformMixin,
+                            UnitJacobianMixin)
 
 # pylint: disable=arguments-differ
 
@@ -59,7 +60,7 @@ class ReferenceDetectorMixin:
 
 
 class UniformPhasePrior(ReferenceDetectorMixin, UniformPriorMixin,
-                        Prior):
+                        UnitJacobianMixin, Prior):
     """
     Uniform prior for the orbital phase.
 
@@ -149,6 +150,16 @@ class IsotropicInclinationPrior(UniformPriorMixin, Prior):
         """Inclination to cos(inclination)."""
         return {'cosiota': np.cos(iota)}
 
+    def ln_jacobian_determinant(self, iota):
+        """
+        Natural log Jacobian determinant of the transform.
+
+        Returns
+        -------
+        float : log|∂{cosiota} / ∂{iota}|
+        """
+        return np.log(np.sin(iota))
+
 
 class IsotropicSkyLocationPrior(UniformPriorMixin, Prior):
     """
@@ -188,6 +199,16 @@ class IsotropicSkyLocationPrior(UniformPriorMixin, Prior):
         return {'costhetanet': costhetanet,
                 'phinet_hat': phinet_hat}
 
+    def ln_jacobian_determinant(self, ra, dec, iota):
+        """
+        Natural log Jacobian determinant of the transform.
+
+        Returns
+        -------
+        float : log|∂{costhetanet, phinet_hat} / ∂{ra, dec}|
+        """
+        return np.log(np.cos(dec))
+
     def get_init_dict(self):
         """
         Return dictionary with keyword arguments to reproduce the class
@@ -199,7 +220,7 @@ class IsotropicSkyLocationPrior(UniformPriorMixin, Prior):
 
 
 class UniformTimePrior(ReferenceDetectorMixin, UniformPriorMixin,
-                       Prior):
+                       UnitJacobianMixin, Prior):
     """Prior for the time of arrival at a reference detector."""
     standard_params = ['t_geocenter']
     range_dic = {'t_refdet': None}
@@ -301,6 +322,19 @@ class UniformLuminosityVolumePrior(ReferenceDetectorMixin, Prior):
         """d_luminosity to d_hat"""
         return {'d_hat': d_luminosity / self._conversion_factor(ra, dec, psi,
                                                                 iota, m1, m2)}
+
+    def ln_jacobian_determinant(self, d_luminosity, ra, dec, psi, iota,
+                                m1, m2):
+        """
+        Natural log Jacobian determinant of the transform.
+
+        Returns
+        -------
+        float : log|∂{d_hat} / ∂{d_luminosity}|
+        """
+        d_hat = self.inverse_transform(
+            d_luminosity, ra, dec, psi, iota, m1, m2)['d_hat']
+        return np.log(d_hat / d_luminosity)
 
     @utils.lru_cache()
     def lnprior(self, d_hat, ra, dec, psi, iota, m1, m2):
