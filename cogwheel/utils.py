@@ -24,13 +24,16 @@ FILE_PERMISSIONS = 0o644
 WEIGHTS_NAME = 'weights'
 
 
-class ClassProperty(property):
+class ClassProperty:
     """
     Like ``@property`` but for class attributes instead of instance
     attributes.
     """
-    def __get__(self, instance, instance_type):
-        return self.fget(instance_type)
+    def __init__(self, fget):
+        self.fget = fget
+
+    def __get__(self, instance, owner=None):
+        return self.fget(owner)
 
 
 def differential_evolution_with_guesses(func, bounds, guesses,

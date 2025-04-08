@@ -187,8 +187,7 @@ class Prior(ABC, utils.JSONMixin):
         """List of sampled parameter names."""
         return list(cls.range_dic)
 
-    @classmethod
-    @property
+    @utils.ClassProperty
     @abstractmethod
     def range_dic(cls):
         """
@@ -203,8 +202,7 @@ class Prior(ABC, utils.JSONMixin):
         """
         return {}
 
-    @classmethod
-    @property
+    @utils.ClassProperty
     @abstractmethod
     def standard_params(cls):
         """List of standard parameter names."""
