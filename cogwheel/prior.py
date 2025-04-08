@@ -273,6 +273,29 @@ class Prior(ABC, utils.JSONMixin):
         raise NotImplementedError(
             f'Determinant not implemented for {self.__class__.__qualname__}')
 
+
+    def standard_lnprior(self, **parameters):
+        """
+        Log prior density in standard coordinates.
+
+        Parameters
+        ----------
+        **parameters
+            Values for ``.standard_params`` and ``.conditioned_on``
+            parameters.
+        """
+        standard_parameters = {par: parameters[par]
+                               for par in self.standard_params}
+        conditioned_on = {par: parameters[par] for par in self.conditioned_on}
+
+        sampled_parameters = self.inverse_transform(**standard_parameters,
+                                                    **conditioned_on)
+        lnp = self.lnprior(**sampled_parameters, **conditioned_on)
+        lnj = self.ln_jacobian_determinant(**standard_parameters,
+                                           **conditioned_on)
+        return lnp + lnj
+
+
     @utils.ClassProperty
     def folded_params(cls):
         """
