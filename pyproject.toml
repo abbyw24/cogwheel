@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cogwheel-pe"
 dynamic = ["version"]
-requires-python = ">= 3.9, < 3.13"
+requires-python = ">= 3.9"
 authors = [
   {name = "Javier Roulet"},
   {name = "Tejaswi Venumadhav"},
