@@ -68,7 +68,7 @@ def has_compatible_signature(func, params) -> bool:
     return list(params[:i_first_vararg]) == positional
 
 
-def check_inheritance_order(subclass, base1, base2, missing_ok=True):
+def check_inheritance_order(subclass, base1, base2):
     """
     Check that `subclass` does not inherit from `base2` before `base1`.
 
@@ -1117,6 +1117,7 @@ class UnitJacobianMixin:
             log|∂{sampled_params} / ∂{standard_params}|
 
         """
+        del par_vals, par_dic
         return 0.0
 
     def __init_subclass__(cls):
