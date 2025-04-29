@@ -68,7 +68,7 @@ def has_compatible_signature(func, params) -> bool:
     return list(params[:i_first_vararg]) == positional
 
 
-def check_inheritance_order(subclass, base1, base2, missing_ok=True):
+def check_inheritance_order(subclass, base1, base2):
     """
     Check that `subclass` does not inherit from `base2` before `base1`.
 
@@ -255,6 +255,46 @@ class Prior(ABC, utils.JSONMixin):
         """
         return (self.lnprior(*par_vals, **par_dic),
                 self.transform(*par_vals, **par_dic))
+
+    def ln_jacobian_determinant(self, *par_vals, **par_dic) -> float:
+        """
+        Natural logarithm of the Jacobian determinant of the transform.
+
+        Take ``.standard_params + .conditioned_on`` parameters and
+        return a float representing
+
+            log|∂{sampled_params} / ∂{standard_params}|
+
+        Parameters
+        ----------
+        *par_vals, **par_dic
+            ``.standard_params + .conditioned_on`` parameter values.
+        """
+        raise NotImplementedError(
+            f'Determinant not implemented for {self.__class__.__qualname__}')
+
+
+    def standard_lnprior(self, **parameters):
+        """
+        Log prior density in standard coordinates.
+
+        Parameters
+        ----------
+        **parameters
+            Values for ``.standard_params`` and ``.conditioned_on``
+            parameters.
+        """
+        standard_parameters = {par: parameters[par]
+                               for par in self.standard_params}
+        conditioned_on = {par: parameters[par] for par in self.conditioned_on}
+
+        sampled_parameters = self.inverse_transform(**standard_parameters,
+                                                    **conditioned_on)
+        lnp = self.lnprior(**sampled_parameters, **conditioned_on)
+        lnj = self.ln_jacobian_determinant(**standard_parameters,
+                                           **conditioned_on)
+        return lnp + lnj
+
 
     @utils.ClassProperty
     def folded_params(cls):
@@ -670,6 +710,7 @@ class CombinedPrior(Prior):
     Also, the ``__init__`` of all classes in `.prior_classes` need to
     accept `**kwargs` and forward them to ``super().__init__()``.
     """
+
     @property
     @staticmethod
     @abstractmethod
@@ -805,6 +846,30 @@ class CombinedPrior(Prior):
             """
             return self.lnprior_and_transform(*par_vals, **par_dic)[0]
 
+        def ln_jacobian_determinant(self, *par_vals, **par_dic):
+            """
+            Natural log Jacobian determinant of the transform.
+
+            Take ``.standard_params + .conditioned_on`` parameters and
+            return a float representing
+
+                log|∂{sampled_params} / ∂{standard_params}|
+
+            Parameters
+            ----------
+            *par_vals, **par_dic
+                Standard and conditioned-on parameter values.
+            """
+            par_dic.update(zip(direct_params, par_vals))
+
+            ln_det_jac = 0.0
+            for subprior in self.subpriors:
+                params = subprior.standard_params + subprior.conditioned_on
+                ln_det_jac += subprior.ln_jacobian_determinant(
+                    **{par: par_dic[par] for par in params})
+
+            return ln_det_jac
+
         # Witchcraft to fix the functions' signatures:
         self_parameter = inspect.Parameter('self',
                                            inspect.Parameter.POSITIONAL_ONLY)
@@ -814,15 +879,18 @@ class CombinedPrior(Prior):
         inverse_parameters = [self_parameter] + [
             inspect.Parameter(par, inspect.Parameter.POSITIONAL_OR_KEYWORD)
             for par in inverse_params]
+
         cls._change_signature(transform, direct_parameters)
         cls._change_signature(inverse_transform, inverse_parameters)
         cls._change_signature(lnprior, direct_parameters)
         cls._change_signature(lnprior_and_transform, direct_parameters)
+        cls._change_signature(ln_jacobian_determinant, inverse_parameters)
 
         cls.transform = transform
         cls.inverse_transform = inverse_transform
         cls.lnprior_and_transform = lnprior_and_transform
         cls.lnprior = lnprior
+        cls.ln_jacobian_determinant = ln_jacobian_determinant
 
     @classmethod
     def _set_params(cls):
@@ -954,6 +1022,7 @@ class FixedPrior(Prior):
     Usage: Subclass `FixedPrior` and define a `standard_par_dic`
     attribute.
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -1008,6 +1077,12 @@ class FixedPrior(Prior):
 
         return {}
 
+    def ln_jacobian_determinant(self, *standard_par_vals,
+                                **standard_par_dic):
+        """Raise ``PriorError``."""
+        raise PriorError(f'{self.__class__.__qualname__} is a fixed '
+                         'prior so it does not have a Jacobian.')
+
     def _get_maximum_lnprior(self):
         return 0.0
 
@@ -1019,6 +1094,7 @@ class UniformPriorMixin:
     It must be inherited before `Prior` (otherwise a `PriorError` is
     raised) so that abstract methods get overriden.
     """
+
     def lnprior(self, *par_vals, **par_dic):
         """
         Natural logarithm of the prior probability density.
@@ -1048,7 +1124,36 @@ class UniformPriorMixin:
         return - np.log(np.prod(self.cubesize))
 
 
-class IdentityTransformMixin:
+class UnitJacobianMixin:
+    """
+    Define ``.ln_jacobian_determinant`` for priors with unit Jacobian
+    determinant.
+    """
+
+    def ln_jacobian_determinant(self, *par_vals, **par_dic):
+        """
+        Natural log Jacobian determinant of the transform.
+
+        Take ``.standard_params + .conditioned_on`` parameters and
+        return a float representing
+
+            log|∂{sampled_params} / ∂{standard_params}|
+
+        """
+        del par_vals, par_dic
+        return 0.0
+
+    def __init_subclass__(cls):
+        """
+        Check that ``UnitJacobianMixin`` comes before ``Prior`` in the
+        MRO.
+        """
+        super().__init_subclass__()
+
+        check_inheritance_order(cls, UnitJacobianMixin, Prior)
+
+
+class IdentityTransformMixin(UnitJacobianMixin):
     """
     Define `standard_params`, `transform` and `inverse_transform` for
     priors whose sampled and standard parameters are the same.
@@ -1056,6 +1161,7 @@ class IdentityTransformMixin:
     It must be inherited before `Prior` (otherwise a `PriorError` is
     raised) so that abstract methods get overriden.
     """
+
     def __init_subclass__(cls):
         """
         Set ``standard_params`` to match ``sampled_params``, and check
