@@ -258,7 +258,8 @@ class Prior(ABC, utils.JSONMixin):
 
     def ln_jacobian_determinant(self, *par_vals, **par_dic) -> float:
         """
-        Natural logarithm of the Jacobian determinant of the transform.
+        Natural logarithm of the Jacobian determinant of the inverse
+        transform.
 
         Take ``.standard_params + .conditioned_on`` parameters and
         return a float representing
@@ -865,6 +866,8 @@ class CombinedPrior(Prior):
 
                 log|∂{sampled_params} / ∂{standard_params}|
 
+            (excluding any standard params that are fixed).
+
             Parameters
             ----------
             *par_vals, **par_dic
@@ -874,6 +877,8 @@ class CombinedPrior(Prior):
 
             ln_det_jac = 0.0
             for subprior in self.subpriors:
+                if isinstance(subprior, FixedPrior):
+                    continue
                 params = subprior.standard_params + subprior.conditioned_on
                 ln_det_jac += subprior.ln_jacobian_determinant(
                     **{par: par_dic[par] for par in params})
