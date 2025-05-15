@@ -568,8 +568,18 @@ class Prior(ABC, utils.JSONMixin):
         if not np.array_equal(samples.index, np.arange(len(samples))):
             raise ValueError('Non-default index unsupported.')
 
+        def transform_as_arr(**direct):
+            standard = self.transform(**direct)
+            return np.array([standard[k] for k in self.standard_params])
+
+        transform_v = np.vectorize(
+            transform_as_arr,
+            signature=','.join('()' for _ in self.sampled_params) + '->(n)'
+        )
+
         direct = samples[self.sampled_params + self.conditioned_on]
-        standard = pd.DataFrame(list(np.vectorize(self.transform)(**direct)))
+        standard = pd.DataFrame(transform_v(**direct),
+                                columns=self.standard_params)
         utils.update_dataframe(samples, standard)
 
     def inverse_transform_samples(self, samples: pd.DataFrame):
