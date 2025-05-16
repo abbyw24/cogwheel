@@ -80,7 +80,7 @@ class UniformEffectiveSpinPrior(UniformPriorMixin, Prior):
         -------
         float : log|∂{chieff, cumchieff} / ∂{s1z, s2z}|
         """
-        assert m1 > m2
+        assert m1 >= m2
 
         q = m2 / m1
         abs_chieff = np.abs((s1z + q*s2z) / (1 + q))
