@@ -12,10 +12,10 @@ class PriorRatio:
     :py:attr:`~cogwheel.prior.Prior.standard_params`, which are expected
     to be the same between different priors. However, prior densities in
     ``cogwheel`` are naturally defined in the space of
-    :py:attr:`~cogwheel.prior.Prior.sampled_params`, so we need to use
-    the Jacobian of the :py:meth:`~cogwheel.prior.Prior.transform`. This
-    is implemented as an optional method of the ``cogwheel`` priors,
-    :py:meth:`~cogwheel.prior.Prior.ln_jacobian_determinant`.
+    :py:attr:`~cogwheel.prior.Prior.sampled_params`, so we need the
+    Jacobian of the :py:meth:`~cogwheel.prior.Prior.inverse_transform`.
+    This is implemented as an optional method of the ``cogwheel``
+    priors, :py:meth:`~cogwheel.prior.Prior.ln_jacobian_determinant`.
 
     For convenience and efficiency, we skip computation of some
     Jacobians in the following situation: if the priors are instances of

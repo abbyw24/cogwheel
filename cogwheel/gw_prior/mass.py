@@ -61,7 +61,7 @@ class UniformDetectorFrameMassesPrior(Prior):
     @staticmethod
     def ln_jacobian_determinant(m1, m2):
         """
-        Natural log Jacobian determinant of the transform.
+        Natural log Jacobian determinant of the inverse transform.
 
         Returns
         -------

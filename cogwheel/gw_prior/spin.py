@@ -74,7 +74,7 @@ class UniformEffectiveSpinPrior(UniformPriorMixin, Prior):
     @classmethod
     def ln_jacobian_determinant(cls, s1z, s2z, m1, m2):
         """
-        Natural log Jacobian determinant of the transform.
+        Natural log Jacobian determinant of the inverse transform.
 
         Returns
         -------
@@ -123,7 +123,7 @@ class IsotropicSpinsAlignedComponentsPrior(UniformPriorMixin, Prior):
 
     def ln_jacobian_determinant(self, s1z, s2z):
         """
-        Natural log Jacobian determinant of the transform.
+        Natural log Jacobian determinant of the inverse transform.
 
         Returns
         -------
@@ -166,7 +166,7 @@ class VolumetricSpinsAlignedComponentsPrior(UniformPriorMixin, Prior):
 
     def ln_jacobian_determinant(self, s1z, s2z):
         """
-        Natural log Jacobian determinant of the transform.
+        Natural log Jacobian determinant of the inverse transform.
 
         Returns
         -------

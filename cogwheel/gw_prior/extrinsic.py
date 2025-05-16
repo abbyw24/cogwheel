@@ -152,7 +152,7 @@ class IsotropicInclinationPrior(UniformPriorMixin, Prior):
 
     def ln_jacobian_determinant(self, iota):
         """
-        Natural log Jacobian determinant of the transform.
+        Natural log Jacobian determinant of the inverse transform.
 
         Returns
         -------
@@ -201,7 +201,7 @@ class IsotropicSkyLocationPrior(UniformPriorMixin, Prior):
 
     def ln_jacobian_determinant(self, ra, dec, iota):
         """
-        Natural log Jacobian determinant of the transform.
+        Natural log Jacobian determinant of the inverse transform.
 
         Returns
         -------
@@ -326,7 +326,7 @@ class UniformLuminosityVolumePrior(ReferenceDetectorMixin, Prior):
     def ln_jacobian_determinant(self, d_luminosity, ra, dec, psi, iota,
                                 m1, m2):
         """
-        Natural log Jacobian determinant of the transform.
+        Natural log Jacobian determinant of the inverse transform.
 
         Returns
         -------

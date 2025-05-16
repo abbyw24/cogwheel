@@ -146,7 +146,7 @@ class PNCoordinatesPrior(Prior):
         def objective(v):
             """Function whose root is `v_ref`."""
             # v**3 smoothens the function without changing the root.
-            return coeffs @ (self._pn1(v, eta), self._pn2(v, eta), 1) * v**3
+            return coeffs @ (self._0pn(v, eta), self._1pn(v, eta), 1) * v**3
 
         try:
             v_ref = scipy.optimize.brentq(objective, 1e-3, 1)
@@ -157,11 +157,11 @@ class PNCoordinatesPrior(Prior):
         m1 = mtot / (1+q)
 
         # Now solve for beta:
-        pn_2_5 = (mu1 - self.eigvecs[(0, 1), 0] @ (self._pn1(v_ref, eta),
-                                                   self._pn2(v_ref, eta))
+        pn_1_5 = (mu1 - self.eigvecs[(0, 1), 0] @ (self._0pn(v_ref, eta),
+                                                   self._1pn(v_ref, eta))
                   ) / self.eigvecs[2, 0]
 
-        beta = 32/3 * eta * v_ref**2 * pn_2_5 + 4*np.pi
+        beta = 32/3 * eta * v_ref**2 * pn_1_5 + 4*np.pi
         s1z = ((24/113*beta - (1 - delta - 76/113*eta)*s2z)
                / (1 + delta - 76/113*eta))
 
@@ -176,9 +176,9 @@ class PNCoordinatesPrior(Prior):
     def inverse_transform(self, m1, m2, s1z, s2z):
         """Standard parameters to sampled parameters."""
         eta, beta, v_ref = self._eta_beta_vref(m1, m2, s1z, s2z)
-        mu1, mu2 = self.eigvecs.T @ (self._pn1(v_ref, eta),
-                                     self._pn2(v_ref, eta),
-                                     self._pn2_5(v_ref, eta, beta))
+        mu1, mu2 = self.eigvecs.T @ (self._0pn(v_ref, eta),
+                                     self._1pn(v_ref, eta),
+                                     self._1_5pn(v_ref, eta, beta))
         return {'mu1': mu1,
                 'mu2': mu2,
                 'lnq': np.log(m2/m1),
@@ -186,7 +186,7 @@ class PNCoordinatesPrior(Prior):
 
     def ln_jacobian_determinant(self, m1, m2, s1z, s2z):
         """
-        Natural log Jacobian determinant of the transform.
+        Natural log Jacobian determinant of the inverse transform.
 
         Returns
         -------
@@ -197,18 +197,18 @@ class PNCoordinatesPrior(Prior):
         eta, beta0, v_ref = self._eta_beta_vref(m1, m2, s1z, s2z=0.)
 
         dbeta_ds1z = beta0 / s1z  # Note s2z=0
-        dpn1_dmchirp = -5/3 * self._pn1(v_ref, eta) / mchirp
-        dpn2_dmchirp = - self._pn2(v_ref, eta) / mchirp
-        dpn3_ds1z = 3/32 * v_ref**-2 / eta * dbeta_ds1z
+        d0pn_dmchirp = -5/3 * self._0pn(v_ref, eta) / mchirp
+        d1pn_dmchirp = - self._1pn(v_ref, eta) / mchirp
+        d1_5pn_ds1z = 3/32 * v_ref**-2 / eta * dbeta_ds1z
 
         # We want |∂{mu1, mu2, lnq, s2z} / ∂{m1, m2, s1z, s2z}|
         # = [1] * [2]
 
         # [1] = |∂{mu1, mu2} / ∂{mchirp, s1z}|
         jacobian_determinant_1 = np.abs(
-            (np.linalg.det(self.eigvecs[(0, 2),]) * dpn1_dmchirp
-             + np.linalg.det(self.eigvecs[(1, 2),]) * dpn2_dmchirp)
-            * dpn3_ds1z)
+            (np.linalg.det(self.eigvecs[(0, 2),]) * d0pn_dmchirp
+             + np.linalg.det(self.eigvecs[(1, 2),]) * d1pn_dmchirp)
+            * d1_5pn_ds1z)
 
         # [2] = |∂{mchirp, lnq} / ∂{m1, m2}|
         jacobian_determinant_2 = ((m1*m2)**2 * (m1 + m2)) ** -0.2
@@ -258,19 +258,19 @@ class PNCoordinatesPrior(Prior):
         return eta, beta, v_ref
 
     @staticmethod
-    def _pn1(v, eta):
-        """1PN term of the phase"""
+    def _0pn(v, eta):
+        """0PN term of the phase"""
         return 3/128 / eta * v**-5
 
     @staticmethod
-    def _pn2(v, eta):
-        """2PN term of the phase."""
+    def _1pn(v, eta):
+        """1PN term of the phase."""
         return 3/128 * (55/9 + 3715/756/eta) * v**-3
 
     @staticmethod
-    def _pn2_5(v, eta, beta):
-        """2.5 PN term of the phase."""
-        return 3/128 * (4*beta - 16*np.pi) / eta * v**-2
+    def _1_5pn(v, eta, beta):
+        """1.5 PN term of the phase."""
+        return 3/32 * (beta - 4*np.pi) / eta * v**-2
 
     def get_init_dict(self):
         """Return keyword arguments to reproduce the class instance."""
