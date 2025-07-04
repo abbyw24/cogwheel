@@ -7,13 +7,12 @@ import logging
 import numpy as np
 import pandas as pd
 
-import lal
-
-from cogwheel import skyloc_angles
-from cogwheel import utils
+from cogwheel import skyloc_angles, utils
 
 from .relative_binning import BaseLinearFree
 from .marginalization import SkyDictionary, CoherentScoreHM
+
+lal = utils.import_lal()
 
 
 class BaseMarginalizedExtrinsicLikelihood(BaseLinearFree):

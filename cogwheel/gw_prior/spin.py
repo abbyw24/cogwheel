@@ -13,13 +13,12 @@ from abc import abstractmethod
 from scipy.interpolate import interp1d
 import numpy as np
 
-import lal
-import lalsimulation
-
 from cogwheel import skyloc_angles
 from cogwheel import utils
 from cogwheel.prior import Prior, FixedPrior, UniformPriorMixin
 from .twosquircle import TwoSquircularMapping
+lal = utils.import_lal()
+import lalsimulation
 
 # pylint: disable=arguments-differ
 
@@ -80,7 +79,7 @@ class UniformEffectiveSpinPrior(UniformPriorMixin, Prior):
         -------
         float : log|∂{chieff, cumchieff} / ∂{s1z, s2z}|
         """
-        assert m1 >= m2
+        assert not (m1 < m2)
 
         q = m2 / m1
         abs_chieff = np.abs((s1z + q*s2z) / (1 + q))

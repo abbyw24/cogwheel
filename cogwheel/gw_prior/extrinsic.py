@@ -9,14 +9,13 @@ as ``**kwargs`` any arguments that other priors may need.
 """
 import numpy as np
 
-import lal
-
 from cogwheel.cosmology import comoving_to_luminosity_diff_vt_ratio
 from cogwheel import gw_utils
 from cogwheel import skyloc_angles
 from cogwheel import utils
 from cogwheel.prior import (Prior, UniformPriorMixin, IdentityTransformMixin,
                             UnitJacobianMixin)
+lal = utils.import_lal()
 
 # pylint: disable=arguments-differ
 

@@ -1169,8 +1169,9 @@ class UnitJacobianMixin:
 
 class IdentityTransformMixin(UnitJacobianMixin):
     """
-    Define `standard_params`, `transform` and `inverse_transform` for
-    priors whose sampled and standard parameters are the same.
+    Define `standard_params`, `transform`, `inverse_transform` and
+    `ln_jacobian_determinant` for priors whose sampled and standard
+    parameters are the same.
 
     It must be inherited before `Prior` (otherwise a `PriorError` is
     raised) so that abstract methods get overriden.

@@ -7,10 +7,10 @@ import scipy.optimize
 import numpy as np
 import pandas as pd
 
-import lal
-
-from cogwheel import gw_utils
+from cogwheel import gw_utils, utils
 from cogwheel.prior import Prior
+
+lal = utils.import_lal()
 
 # pylint: disable=arguments-differ
 
