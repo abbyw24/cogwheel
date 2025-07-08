@@ -101,6 +101,18 @@ class Posterior(utils.JSONMixin):
         lnl, metadata = self.likelihood.lnlike_and_metadata(standard_par_dic)
         return lnprior + lnl, standard_par_dic, metadata
 
+    def standard_lnposterior(self, *standard_parameters_,
+                             **standard_parameters):
+        """
+        Natural logarithm of the posterior probability density in
+        the space of standard parameters.
+        """
+        standard_parameters.update(zip(self.prior.standard_params,
+                                       standard_parameters_))
+        lnp = self.prior.standard_lnprior(**standard_parameters)
+        lnl = self.likelihood.lnlike(standard_parameters)
+        return lnp + lnl
+
     @classmethod
     def from_event(
             cls, event, mchirp_guess, approximant, prior_class,
