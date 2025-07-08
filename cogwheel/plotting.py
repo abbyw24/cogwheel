@@ -745,8 +745,10 @@ class MultiCornerPlot:
         """
         Parameters
         ----------
-        dataframes : sequence of ``pandas.DataFrame`` instances
-            Samples from the distributions to be plotted.
+        dataframes : sequence of ``pandas.DataFrame`` instances, dict
+            Samples from the distributions to be plotted. If it's a
+            dict, it should be in the form of {label: samples} pairs,
+            and `labels` will be read from the keys.
 
         params : list of str, optional
             Subset of columns present in all dataframes, to plot a
@@ -764,6 +766,7 @@ class MultiCornerPlot:
 
         labels : sequence of strings, optional
             Legend labels corresponding to the different distributions.
+            Do not pass `labels` if `dataframes` is a dict.
 
         **plotstyle_kwargs
             Passed to `PlotStyle` constructor to override defaults.
@@ -825,8 +828,16 @@ class MultiCornerPlot:
             there are a few outlier samples.
             0 (default) includes all samples.
         """
+        if isinstance(dataframes, dict):
+            if labels is not None:
+                raise ValueError(
+                    "Don't pass `labels` if `dataframes` is a dict.")
+            labels = dataframes.keys()
+            dataframes = dataframes.values()
+
         if labels is None:
             labels = [None] * len(dataframes)
+
         if len(labels) != len(dataframes):
             raise ValueError(
                 '`dataframes` and `labels` have different lengths.')
@@ -841,8 +852,8 @@ class MultiCornerPlot:
         self.labels = labels
 
         if params is None:
-            params = [par for par in dataframes[0]
-                      if par in set.intersection(*map(set, dataframes))]
+            common_cols = set.intersection(*map(set, dataframes))
+            params = [par for par in dataframes[0] if par in common_cols]
 
         self.corner_plots = [
             self.corner_plot_cls(samples, plotstyle=plotstyle, params=params,
