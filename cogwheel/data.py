@@ -9,12 +9,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import gwpy.timeseries
 import gwosc
 
 from cogwheel import gw_utils
 from cogwheel import utils
 from cogwheel import waveform
+
+utils.import_lal()
+
+import gwpy.timeseries
 
 # gwpy meddles with matplotlib, undo:
 plt.rcdefaults()
