@@ -94,10 +94,10 @@ class PlotStyle:
     Attributes
     ----------
     confidence_level : float between 0 and 1, or ``None``
-        Determines the reported confidence interval around the
-        median (highlighted band in 1-d marginal probability and
-        numeric values in the subplot titles). If ``None``, both
-        the numerical values and highlighted bands are removed.
+        Determines the reported confidence interval around the median
+        (highlighted band in 1-d marginal probability and numeric values
+        in the subplot titles). If ``None``, both the numerical values
+        and highlighted bands are removed.
 
     contour_fractions : sequence of floats
         Fractions of the distribution to enclose by 2-d contours.
@@ -112,8 +112,8 @@ class PlotStyle:
         Keyword arguments to `plt.contour` and `plt.contourf`
 
     vline_kwargs : dict
-        Keyword arguments to `plt.plot` for the vertical lines
-        signaling medians and 1-d confidence intervals.
+        Keyword arguments to `plt.plot` for the vertical lines signaling
+        medians and 1-d confidence intervals.
 
     vfill_kwargs : dict
         Keyword arguments to `plt.fill_between` for 1-d plots.
@@ -122,8 +122,8 @@ class PlotStyle:
         Keyword arguments to `plt.plot` for 1-d plots.
 
     clabel_kwargs : dict, optional
-        Keyword arguments for contour labels. Pass an empty `dict`
-        to use defaults. ``None`` draws no contour labels.
+        Keyword arguments for contour labels. Pass an empty `dict` to
+        use defaults. ``None`` draws no contour labels.
 
     fill : {'gradient', 'flat', 'none'}
         How to display 2-d marginal distributions:
@@ -197,8 +197,7 @@ class PlotStyle:
     @classmethod
     def get_many(cls, number, **kwargs):
         """
-        Return list of plostyles with different colors and
-        linestyles.
+        Return list of plostyles with different colors and linestyles.
         """
         linestyles = gen_linestyles(number)
         colors = gen_colors(number)
@@ -423,8 +422,8 @@ class CornerPlot:
         y_title = 1 - .9 * self.MARGIN_INCHES / self.fig.get_figheight()
         self.fig.suptitle(title, y=y_title, verticalalignment='bottom')
 
-        self.axes[0][-1].legend(
-            *self.axes[0][0].get_legend_handles_labels(),
+        self.axes[0, -1].legend(
+            *self.axes[0, 0].get_legend_handles_labels(),
             bbox_to_anchor=(1, 1), frameon=False, loc='upper right',
             borderaxespad=0, borderpad=0, title=legend_title)
 
@@ -472,7 +471,7 @@ class CornerPlot:
 
             for row, col in zip(*np.tril_indices_from(self.axes, -1)):
                 try:
-                    self.axes[row][col].scatter(point[self.params[col]],
+                    self.axes[row, col].scatter(point[self.params[col]],
                                                 point[self.params[row]],
                                                 color=color, **kwargs)
                 except KeyError:  # `scatter_points` may lack params
@@ -746,8 +745,10 @@ class MultiCornerPlot:
         """
         Parameters
         ----------
-        dataframes : sequence of ``pandas.DataFrame`` instances
-            Samples from the distributions to be plotted.
+        dataframes : sequence of ``pandas.DataFrame`` instances, dict
+            Samples from the distributions to be plotted. If it's a
+            dict, it should be in the form of {label: samples} pairs,
+            and `labels` will be read from the keys.
 
         params : list of str, optional
             Subset of columns present in all dataframes, to plot a
@@ -765,6 +766,7 @@ class MultiCornerPlot:
 
         labels : sequence of strings, optional
             Legend labels corresponding to the different distributions.
+            Do not pass `labels` if `dataframes` is a dict.
 
         **plotstyle_kwargs
             Passed to `PlotStyle` constructor to override defaults.
@@ -826,8 +828,16 @@ class MultiCornerPlot:
             there are a few outlier samples.
             0 (default) includes all samples.
         """
+        if isinstance(dataframes, dict):
+            if labels is not None:
+                raise ValueError(
+                    "Don't pass `labels` if `dataframes` is a dict.")
+            labels = dataframes.keys()
+            dataframes = dataframes.values()
+
         if labels is None:
             labels = [None] * len(dataframes)
+
         if len(labels) != len(dataframes):
             raise ValueError(
                 '`dataframes` and `labels` have different lengths.')
@@ -842,8 +852,8 @@ class MultiCornerPlot:
         self.labels = labels
 
         if params is None:
-            params = [par for par in dataframes[0]
-                      if par in set.intersection(*map(set, dataframes))]
+            common_cols = set.intersection(*map(set, dataframes))
+            params = [par for par in dataframes[0] if par in common_cols]
 
         self.corner_plots = [
             self.corner_plot_cls(samples, plotstyle=plotstyle, params=params,

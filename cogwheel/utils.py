@@ -10,9 +10,11 @@ import re
 import sys
 import tempfile
 import textwrap
+import warnings
 from contextlib import contextmanager
 from scipy.optimize import _differentialevolution
 from numba import vectorize
+from IPython import get_ipython
 import numpy as np
 
 from . import __version__
@@ -24,13 +26,16 @@ FILE_PERMISSIONS = 0o644
 WEIGHTS_NAME = 'weights'
 
 
-class ClassProperty(property):
+class ClassProperty:
     """
     Like ``@property`` but for class attributes instead of instance
     attributes.
     """
-    def __get__(self, instance, instance_type):
-        return self.fget(instance_type)
+    def __init__(self, fget):
+        self.fget = fget
+
+    def __get__(self, instance, owner=None):
+        return self.fget(owner)
 
 
 def differential_evolution_with_guesses(func, bounds, guesses,
@@ -64,6 +69,23 @@ class _DifferentialEvolutionSolverWithGuesses(
         initial_pop = self._scale_parameters(self.population)
         population = np.vstack((initial_pop, guesses))
         self.init_population_array(population)
+
+
+def import_lal():
+    """
+    Import lal, disabling stdout/stderr redirection if in ipython.
+
+    Returns
+    -------
+    module : lal
+    """
+    if get_ipython():
+        warnings.filterwarnings("ignore", "Wswiglal-redir-stdio")
+        import lal
+        lal.swig_redirect_standard_output_error(False)
+    else:
+        import lal
+    return lal
 
 
 _cached_functions_registry = []
