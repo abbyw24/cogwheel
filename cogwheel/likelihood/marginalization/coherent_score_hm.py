@@ -227,12 +227,11 @@ class CoherentScoreHM(ProposingCoherentScore, BaseCoherentScoreHM):
             'n_effective': np.full(num, marg_info.n_effective)[()],
             'n_qmc': np.full(num, marg_info.n_qmc)[()]}
 
-    def _get_dh_hh_qo(self, sky_inds, q_inds, t_first_det, times,
+    def _get_dh_hh_qm(self, sky_inds, q_inds, t_first_det, times,
                       dh_mptd, hh_mppd):
         """
-        Apply antenna factors and orbital phase to the polarizations, to
-        obtain (d|h) and (h|h) by extrinsic sample 'q' and orbital phase
-        'o'.
+        Apply antenna factors to the polarizations, to
+        obtain (d|h) and (h|h) by extrinsic sample 'q' and mode 'm'.
         """
         fplus_fcross = self._get_fplus_fcross(sky_inds, q_inds)
 
@@ -256,6 +255,19 @@ class CoherentScoreHM(ProposingCoherentScore, BaseCoherentScoreHM):
         f_f = np.einsum('qdp,qdP->qpPd', fplus_fcross, fplus_fcross)
         hh_qm = (f_f.reshape(f_f.shape[0], -1)
                  @ hh_mppd.reshape(hh_mppd.shape[0], -1).T)  # qm
+
+        return dh_qm, hh_qm
+
+    def _get_dh_hh_qo(self, sky_inds, q_inds, t_first_det, times,
+                      dh_mptd, hh_mppd):
+
+        """
+        Apply antenna factors and orbital phase to the polarizations, to
+        obtain (d|h) and (h|h) by extrinsic sample 'q' and orbital phase
+        'o'.
+        """
+        dh_qm, hh_qm = self._get_dh_hh_qm(sky_inds, q_inds, t_first_det,
+                                            times, dh_mptd, hh_mppd)
 
         dh_qo = utils.real_matmul(dh_qm, self._dh_phasor)  # qo
         hh_qo = utils.real_matmul(hh_qm, self._hh_phasor)  # qo
