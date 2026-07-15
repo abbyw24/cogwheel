@@ -77,7 +77,7 @@ _LABELS = {
     # Time
     't_refdet': r'$t_{\rm ref\,det}$',
     'tc': r'$t_c$',
-    't_geocenter': r'$t_{\rm ⴲ}$',
+    't_geocenter': r'$t_{\rm ref}$',
     't_linfree': r'$t_{\rm LF}$',
     # Likelihood
     'lnl': r'$\ln \mathcal{L}$',
@@ -91,6 +91,8 @@ _LABELS = {
     'u_psi': r'$u_\psi$',
     'u_costhetanet': r'$u_{\theta_{\rm net}}$',
     'u_phinet_hat': r'$u_{\hat\phi_{\rm net}}$',
+    # Lensing
+    'p_lensed': r'$p_{\rm II}$'
     }
 
 _UNITS = (dict.fromkeys(['mchirp', 'm1', 'm2', 'mtot', 'mtot_source',

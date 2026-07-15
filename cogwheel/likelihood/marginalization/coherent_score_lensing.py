@@ -9,7 +9,7 @@ from cogwheel import utils
 
 def _flip_psi_lensed(psi, d_h, flip_psi, lensed):
     """
-    Note input `d_h` is complex, but only a scalar d_h is returned, depending on
+    Note input `d_h` is complex, but only a real scalar d_h is returned, depending on
     whether the signal is lensed.
     """
     # handle psi
@@ -93,7 +93,8 @@ class CoherentScoreLensing(CoherentScoreHM):
             and preserves ⟨h|h⟩).
 
         lensed : bool array of length n_important
-            Whether to multiply the waveform by a factor of i (⟨d|h⟩-> i⟨d|h⟩).
+            Whether to multiply the waveform by a factor of i (so ⟨d|h⟩-> i⟨d|h⟩
+            and ⟨h|h⟩ is preserved).
         """
 
         # dh_qo.shape == (n_physical, n_phi)
@@ -102,14 +103,6 @@ class CoherentScoreLensing(CoherentScoreHM):
             [-np.real(dh_qo), -np.imag(dh_qo)]
         ])
         # dh_slqo.shape == (2, 2, n_physical, n_phi)
-        # flip_psi = np.array([
-        #     [False, False],
-        #     [True, True]
-        # ])
-        # lensed = np.array([
-        #     [False, True],
-        #     [False, True]
-        # ])
         flip_psi = np.full(dh_slqo.shape, False)
         flip_psi[1] = True
         lensed = np.full(dh_slqo.shape, False)
@@ -119,9 +112,6 @@ class CoherentScoreLensing(CoherentScoreHM):
         idx_positive = np.where(dh_slqo > 0)
         max_over_distance_lnl[idx_positive] = (
             0.5 * dh_slqo[idx_positive]**2 / hh_qo[idx_positive[2], idx_positive[3]])
-        # flip_psi = np.signbit(dh_qo)  # qo
-        # flip_lensing = [np.abs(np.imag(dh_qo_)) > np.abs(np.real(dh_qo_)) for dh_qo_ in dh_qo]
-        # max_over_distance_lnl = 0.5 * dh_qo**2 / hh_qo  # qo
         threshold = np.max(max_over_distance_lnl) - self.DLNL_THRESHOLD
         important = np.where(max_over_distance_lnl > threshold)
         important_qo = (important[2], important[3])
@@ -258,7 +248,7 @@ class CoherentScoreLensing(CoherentScoreHM):
             # Order and dtype must match that of regular output
             out = dict.fromkeys(['d_luminosity', 'dec', 'lon', 'phi_ref',
                                  'psi', 't_geocenter', 'lnl_marginalized',
-                                 'lnl', 'h_h', 'n_effective', 'n_qmc', 'p_lensed'],
+                                 'lnl', 'h_h', 'n_effective', 'n_qmc', 'p_lensed', 'lensed'],
                                 np.full(num, np.nan)[()])
             if marg_info is None:
                 out['n_qmc'] = np.full(num, 0)[()]
@@ -300,7 +290,8 @@ class CoherentScoreLensing(CoherentScoreHM):
             'h_h': h_h / distance_ratio**2,
             'n_effective': np.full(num, marg_info.n_effective)[()],
             'n_qmc': np.full(num, marg_info.n_qmc)[()],
-            'p_lensed' : np.full(num, marg_info.p_lensed)[()]}
+            'p_lensed' : np.full(num, marg_info.p_lensed)[()],
+            'lensed' : marg_info.lensed[random_ids]}
 
 @dataclass
 class MarginalizationInfoLensing(MarginalizationInfo):
