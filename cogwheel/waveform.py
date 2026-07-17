@@ -59,8 +59,8 @@ def compute_hplus_hcross(f, par_dic, approximant: str,
 
     Returns
     -------
-    hplus, hcross : float arrays
-        Waveform polarizations evaluated at `f`.
+    hplus_hcross : (2, n_freq) float array
+        Waveform polarizations + and x evaluated at `f`.
     """
     # Parameters ordered for lalsimulation.SimInspiralChooseFDWaveformSequence
     lal_params = [
@@ -165,6 +165,7 @@ Approximant = namedtuple(
 APPROXIMANTS = {
     'IMRPhenomD_NRTidalv2': Approximant(tides=True),
     'IMRPhenomD': Approximant(),
+    'IMRPhenomXP': Approximant(aligned_spins=False),
     'IMRPhenomXPHM': Approximant(harmonic_modes=[(2, 2), (2, 1), (3, 3),
                                                  (3, 2), (4, 4)],
                                  aligned_spins=False),

@@ -501,23 +501,11 @@ class Prior(ABC, utils.JSONMixin):
 
     def __init_subclass__(cls):
         """
-        Check that:
-
-        * Subclasses that change the `__init__` signature also define
-        their own `get_init_dict` method.
-
-        * Methods `.transform`, `.inverse_transform`, `.lnprior`,
-        `.lnprior_and_transform` have signatures compatible with the
-        correct ones.
-
+        Check that methods `.transform`, `.inverse_transform`,
+        `.lnprior`, `.lnprior_and_transform` have signatures compatible
+        with the correct ones.
         """
         super().__init_subclass__()
-
-        if (inspect.signature(cls.__init__)
-                != inspect.signature(Prior.__init__)
-                and cls.get_init_dict is Prior.get_init_dict):
-            raise PriorError(
-                f'{cls.__name__} must override `get_init_dict` method.')
 
         direct_params = cls.sampled_params + cls.conditioned_on
         inverse_params = cls.standard_params + cls.conditioned_on
@@ -541,15 +529,6 @@ class Prior(ABC, utils.JSONMixin):
         rep += f') → [{", ".join(self.standard_params)}]'
         return rep
 
-    def get_init_dict(self):
-        """
-        Return keyword arguments to reproduce the class instance.
-
-        Subclasses should override this method if they require
-        initialization parameters.
-        """
-        return {}
-
     def transform_samples(self, samples: pd.DataFrame):
         """
         Add columns in-place for `self.standard_params` to `samples`.
@@ -572,12 +551,14 @@ class Prior(ABC, utils.JSONMixin):
             standard = self.transform(**direct)
             return np.array([standard[k] for k in self.standard_params])
 
+        direct_params = self.sampled_params + self.conditioned_on
+
         transform_v = np.vectorize(
             transform_as_arr,
-            signature=','.join('()' for _ in self.sampled_params) + '->(n)'
+            signature=','.join('()' for _ in direct_params) + '->(n)'
         )
 
-        direct = samples[self.sampled_params + self.conditioned_on]
+        direct = samples[direct_params]
         standard = pd.DataFrame(transform_v(**direct),
                                 columns=self.standard_params)
         utils.update_dataframe(samples, standard)
@@ -727,16 +708,14 @@ class CombinedPrior(Prior):
     def prior_classes():
         """List of `Prior` subclasses with the priors to combine."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """
         Parameters
         ----------
-        *args, **kwargs
+        **kwargs
             The list of parameters to pass to a subclass `cls` of
             `CombinedPrior` can be found using `cls.init_parameters()`.
         """
-        kwargs.update(zip((par.name for par in self.init_parameters()), args))
-
         # Check for all required arguments at once:
         required = {par.name
                     for par in self.init_parameters(include_optional=False)}
@@ -1006,13 +985,11 @@ class CombinedPrior(Prior):
         func.__signature__ = inspect.signature(func).replace(
             parameters=parameters)
 
-    def get_init_dict(self):
-        """
-        Return dictionary with keyword arguments to reproduce the class
-        instance.
-        """
+    def get_init_dict(self, **kwargs):
+        """Return keyword arguments to reproduce the class instance."""
         init_dicts = [subprior.get_init_dict() for subprior in self.subpriors]
-        return utils.merge_dictionaries_safely(*init_dicts)
+        return super().get_init_dict(
+            **utils.merge_dictionaries_safely(*init_dicts) | kwargs)
 
     @classmethod
     def get_fast_sampled_params(cls, fast_standard_params):

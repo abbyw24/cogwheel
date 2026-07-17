@@ -11,8 +11,7 @@ import numpy as np
 from scipy import special, stats
 import matplotlib.pyplot as plt
 
-from cogwheel import utils
-from cogwheel import waveform
+from cogwheel import utils, waveform
 
 
 def hole_edges(mask):
@@ -22,8 +21,8 @@ def hole_edges(mask):
     """
     # Append ones at left and right to catch end holes if present.
     edges = np.diff(np.r_[1, mask, 1])
-    left_edges = np.where(edges == -1)[0].astype(np.uint32)
-    right_edges = np.where(edges == 1)[0].astype(np.uint32)
+    left_edges = np.where(edges == -1)[0]
+    right_edges = np.where(edges == 1)[0]
     return np.c_[left_edges, right_edges]
 
 

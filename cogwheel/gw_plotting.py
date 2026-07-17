@@ -22,6 +22,8 @@ _LABELS = {
     'mchirp_source': r'$\mathcal{M}^{\rm src}$',
     'l1': r'$\Lambda_1$',
     'l2': r'$\Lambda_2$',
+    'mu1': r'$\mu_1$',
+    'mu2': r'$\mu_2$',
     # Spin
     'chieff': r'$\chi_{\rm eff}$',
     'cumchidiff': r'$C_{\rm diff}$',
@@ -86,11 +88,7 @@ _LABELS = {
     'lnl_V': r'$\ln \mathcal{L}_V$',
     'lnl_marginalized': r'$\ln \overline{\mathcal{L}}$',
     'h_h': r'$\langle h | h \rangle$',
-    # Cumulatives
-    'u_t_linfree': r'$u_t$',
-    'u_psi': r'$u_\psi$',
-    'u_costhetanet': r'$u_{\theta_{\rm net}}$',
-    'u_phinet_hat': r'$u_{\hat\phi_{\rm net}}$',
+    'n_effective': r'$n_{\rm eff}$'
     # Lensing
     'p_lensed': r'$p_{\rm II}$'
     }

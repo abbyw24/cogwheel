@@ -1,19 +1,18 @@
 """Download, process and store data about GW events."""
 
+import collections
 import json
 import logging
 import pathlib
-from scipy import signal
-from scipy import interpolate
+from scipy import signal, interpolate, linalg
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 import gwosc
 
-from cogwheel import gw_utils
-from cogwheel import utils
-from cogwheel import waveform
+from cogwheel import gw_utils, utils, waveform
+from cogwheel.likelihood.likelihood import hole_edges
 
 utils.import_lal()
 
@@ -322,8 +321,8 @@ class EventData(utils.JSONMixin):
     @staticmethod
     def _read_timeseries(filename, tgps, **kwargs):
         """
-        Return a ``gwpy.timeseries.TimeSeries``, cropped around
-        the event to exclude any nans.
+        Return a ``gwpy.timeseries.TimeSeries``, cropped around the
+        event to exclude any nans.
         """
         try:
             timeseries = gwpy.timeseries.TimeSeries.read(filename, **kwargs)
@@ -573,6 +572,26 @@ class EventData(utils.JSONMixin):
         return (np.sqrt(2 * self.nfft * self.df)
                 * np.fft.irfft(strain_f * self.wht_filter))
 
+    def heterodyne(self, ref_phase):
+        """
+        Return data heterodyned against with a reference phase.
+
+        Useful e.g. for visualizing long faint signals and for assessing
+        by eye the quality of a fit.
+
+        Parameters
+        ----------
+        ref_phase : (n_det?, n_freq_slice) float array
+            Phase (rad) evaluated on ``self.frequencies[self.fslice]``.
+
+        Returns
+        -------
+        EventData
+        """
+        phasor = np.ones_like(self.strain)
+        phasor[:, self.fslice] = np.exp(1j*ref_phase)
+        return self.reinstantiate(strain=self.strain * phasor.conj())
+
     def to_npz(self, *, filename=None, overwrite=False,
                permissions=0o644):
         """Save class as ``.npz`` file (by default in `DATADIR`)."""
@@ -639,6 +658,163 @@ class EventData(utils.JSONMixin):
                 'To download 16384 Hz data do:\n\t'
                 'cogwheel.data.download_timeseries('
                 f'{self.eventname!r}, overwrite=True, sample_rate=2**14)')
+
+    def inpaint(self, inpaint_times_by_det: dict):
+        """
+        Inpaint segments of data, useful to mitigate glitches.
+
+        Parameters
+        ----------
+        inpaint_times_by_det : dict
+            Dictionary with times to inpaint by detector. Keys are
+            detector names, values are lists of tuples, each with a pair
+            (t_start, t_end), e.g.:
+            {'H': [(t_start_0, t_end_0), (t_start_1, t_end_1)]}
+            Times are expressed in seconds from ``.tgps``.
+            See ``EventData.suggest_inpaint_times`` to generate
+            automatically.
+
+        Returns
+        -------
+        EventData : Instance containing the inpainted data.
+
+        See Also
+        --------
+        EventData.suggest_inpaint_times
+        """
+        for pairs in inpaint_times_by_det.values():
+            for left, right in pairs:
+                if left >= right:
+                    raise ValueError('Provide sorted pairs')
+
+        filled_strain = self.strain.copy()
+        times = self.times - self.tcoarse
+
+        for detector_name, inpaint_times in inpaint_times_by_det.items():
+            i_det = self.detector_names.index(detector_name)
+            strain_td = np.fft.irfft(self.strain[i_det], n=len(times))
+
+            if len(inpaint_times) == 1:
+                leftind, rightind = np.searchsorted(times, inpaint_times[0])
+                data_filled = fill_hole_consecutive(
+                    strain_td, leftind, rightind, self.wht_filter[i_det])
+            else:
+                mask = np.full(len(self.times), True)
+                for t_start, t_end in inpaint_times:
+                    mask[(times > t_start) & (times < t_end)] = False
+                data_filled = fill_holes_bruteforce(
+                    strain_td, mask, self.wht_filter[i_det])
+
+            filled_strain[i_det] = np.fft.rfft(data_filled)
+
+        return self.reinstantiate(strain=filled_strain)
+
+    def suggest_inpaint_times(self, nfft=64, noverlap=None, vmax=20.,
+                              exclude=(-0.5, 0.1), power_drop=10.0,
+                              plot=True):
+        """
+        Identify time intervals to inpaint in each detector.
+
+        Inpaint times are identified based on excess power in a
+        spectrogram of whitened data. The parameters to this function
+        control the spectrogram. Note that different glitches may be
+        better captured by different spectrogram configurations.
+        The first output `inpaint_times` can be (edited and) passed to
+        :py:meth:`~EventData.inpaint`.
+
+        Parameters
+        ----------
+        nfft : int, optional
+            Number of samples per FFT segment. Defines the STFT
+            frequency resolution. Default is 64.
+
+        noverlap : int or None, optional
+            Number of samples to overlap between consecutive FFT
+            windows. Defaults to ``nfft // 2``.
+
+        vmax : float, optional
+            Maximum allowed peak power in the whitened spectrogram, in
+            units of variance.
+
+        exclude : tuple of float
+            Two-element tuple ``(t_min, t_max)`` specifying a time
+            interval relative to ``self.tcoarse`` that is not to be
+            inpainted (to preserve the actual GW signal).
+
+        power_drop : float
+            We seek outliers iteratively, to prevent the whitening
+            filter from corrupting a lot of data if there is a very loud
+            glitch. At each iteration only data with power within a
+            factor ``1/power_drop`` of the global maximum are flagged
+            and inpainted.
+
+        plot : bool
+            If True (default), display diagnostic spectrograms before
+            and after suggested inpainting, with segments to inpaint
+            marked.
+
+        Returns
+        -------
+        inpaint_times_by_det : dict
+            Dictionary mapping detector names to lists of time segments
+            ``[t_start, t_end]`` (relative to ``tgps``) that can be
+            passed to :py:meth:`~EventData.inpaint`.
+
+        event_data : EventData
+            Data with the suggested inpainting applied.
+
+        See Also
+        --------
+        EventData.inpaint
+        EventData.specgram
+        """
+        noverlap = noverlap or nfft // 2
+
+        stfft = signal.ShortTimeFFT(
+            win=np.hanning(nfft),
+            hop=nfft - noverlap,
+            fs=2 * self.fbounds[1],
+            scale_to='psd',
+            fft_mode='onesided2X'
+        )
+
+        event_data = self
+        inpaint_times_by_det = collections.defaultdict(list)
+        for i, det_name in enumerate(self.detector_names):
+            threshold = np.inf
+            while threshold > vmax:
+                wht_data_td = np.sqrt(2 * stfft.fs) * np.fft.irfft(
+                    event_data.strain[i] * event_data.wht_filter[i])
+                spectrum = stfft.spectrogram(wht_data_td * np.sqrt(stfft.fs))
+                t = stfft.t(len(wht_data_td)) - event_data.tcoarse
+                excluded = (exclude[0] < t) & (t < exclude[1])
+
+                peak_power = spectrum.max(axis=0)  # timeseries
+                old_threshold = threshold
+                threshold = max(peak_power[~excluded].max() / power_drop, vmax)
+                assert old_threshold > threshold
+                clean = (peak_power < threshold) | excluded
+                edges = np.clip(hole_edges(clean) - np.array([1, 0]),
+                                0, None)  # Expand left for time convention
+                segments = t[edges]
+                inpaint_times_by_det[det_name].extend(segments.tolist())
+                event_data = event_data.inpaint(
+                    {det_name: inpaint_times_by_det[det_name]})
+
+        if plot:
+            # Show original:
+            self.specgram(nfft=nfft, noverlap=noverlap, vmax=vmax)
+            axes = plt.gcf().axes
+            axes[0].set_title('Original')
+            for ax, det_name in zip(axes, self.detector_names):
+                for segment in inpaint_times_by_det[det_name]:
+                    ax.axvspan(*segment, color='r', ymax=.025)
+
+            # Show suggested:
+            event_data.specgram()
+            plt.gcf().axes[0].set_title('Inpainted')
+
+        return inpaint_times_by_det, event_data
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.eventname})'
@@ -790,3 +966,93 @@ def _fetch_open_data(detector_name, tgps, interval, **kwargs):
             ifo, start, end, **kwargs)
 
     return timeseries
+
+
+def fill_holes_bruteforce(data, qmask, wt_filter_fd):
+    """
+    Inpaint time-domain data at arbitrary times.
+
+    Parameters
+    ----------
+    data : float array
+        Time-domain strain data.
+
+    qmask : Boolean array
+        Mask with zeros at holes in unwhitened data.
+
+    wt_filter_fd : float array
+        Frequency domain whitening filter. Lives in the space of
+        rfft(len(data), dt).
+
+    Returns
+    -------
+    float array of size len(data) with time-domain filled data.
+
+    See Also
+    --------
+    fill_hole_consecutive
+    """
+    filleddata = data.copy()
+    hole_inds = np.where(~qmask)[0]
+
+    filleddata[hole_inds] = 0
+
+    # First, run the square of the whitening filter on the data
+    bluing_filter = np.abs(wt_filter_fd) ** 2
+    c_inv_td = np.fft.irfft(bluing_filter, n=len(data))
+    c_inv_dat = np.fft.irfft(
+        np.fft.rfft(filleddata) * bluing_filter, n=len(data))
+
+    ii, jj = np.meshgrid(hole_inds, hole_inds, indexing='ij')
+    mat = c_inv_td[np.abs(ii - jj)]
+
+    # Solve for filled values, note that at size of the matrix
+    # 10^5 x 10^5, solve becomes numerically unstable
+    filleddata[hole_inds] = -np.linalg.solve(mat, c_inv_dat[hole_inds])
+
+    return filleddata
+
+
+def fill_hole_consecutive(data, leftind, rightind, wt_filter_fd):
+    """
+    Inpaint time-domain data on a consecutive stretch of time.
+
+    More efficient than ``fill_hole_bruteforce``, but restricted to only
+    one hole.
+
+    Parameters
+    ----------
+    data : float array
+        Time-domain strain data.
+
+    leftind, rightind : int
+        Left and right index of hole.
+
+    wt_filter_fd : float array
+        Frequency domain whitening filter. Lives in the space of
+        rfft(len(data), dt).
+
+    Returns
+    -------
+    float array of size len(data) with time-domain filled data.
+
+    See Also
+    --------
+    fill_holes_bruteforce
+    """
+    # Copy the data and zero inside the hole
+    filleddata = data.copy()
+    hole = slice(leftind, rightind)
+    filleddata[hole] = 0
+
+    # Run the square of the whitening filter on the data
+    bluing_filter = np.abs(wt_filter_fd) ** 2
+    c_inv_td = np.fft.irfft(bluing_filter, n=len(data))
+    c_inv_dat = np.fft.irfft(
+        np.fft.rfft(filleddata) * bluing_filter, n=len(data))
+
+    # Shuffle the data inside the hole
+    filleddata[hole] = -linalg.solve_toeplitz(
+        c_inv_td[: rightind-leftind], c_inv_dat[hole])
+
+    return filleddata
