@@ -88,7 +88,7 @@ _LABELS = {
     'lnl_V': r'$\ln \mathcal{L}_V$',
     'lnl_marginalized': r'$\ln \overline{\mathcal{L}}$',
     'h_h': r'$\langle h | h \rangle$',
-    'n_effective': r'$n_{\rm eff}$'
+    'n_effective': r'$n_{\rm eff}$',
     # Lensing
     'p_lensed': r'$p_{\rm II}$'
     }
